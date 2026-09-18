@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Home, Factory, Leaf, Upload, MapPin, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Home, Factory, Leaf, Upload, MapPin, AlertCircle, CheckCircle2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -109,7 +109,14 @@ export function QuoteForm() {
         body: JSON.stringify(formData),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        const text = await res.text();
+        data = text ? JSON.parse(text) : {};
+      } catch (jsonErr) {
+        console.warn("Could not parse response as JSON:", jsonErr);
+      }
+
       setIsSubmitting(false);
 
       if (!res.ok) {
@@ -266,6 +273,30 @@ export function QuoteForm() {
                     </p>
                   )}
                 </div>
+
+                {/* Live Real-Time Solar ROI Estimator Card */}
+                {Number(formData.facture) > 0 && (
+                  <div className="p-5 bg-gradient-to-r from-primary/5 via-secondary-container/10 to-amber-500/10 border border-secondary-container/40 rounded-xl space-y-3 animate-in fade-in duration-300">
+                    <p className="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-secondary fill-secondary" />
+                      Estimation Instantanée des Rendements Solaires :
+                    </p>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="bg-white p-3 rounded-lg border border-outline-variant/30 shadow-sm">
+                        <p className="text-[11px] text-on-surface-variant font-medium">Puissance Recommandée</p>
+                        <p className="font-montserrat text-lg font-bold text-primary">{(Number(formData.facture) * 0.035).toFixed(1)} kWc</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg border border-outline-variant/30 shadow-sm">
+                        <p className="text-[11px] text-on-surface-variant font-medium">Économies Estimées / An</p>
+                        <p className="font-montserrat text-lg font-bold text-green-700">~{Math.round(Number(formData.facture) * 12 * 0.78).toLocaleString()} TND</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg border border-outline-variant/30 shadow-sm">
+                        <p className="text-[11px] text-on-surface-variant font-medium">Retour sur Investissement</p>
+                        <p className="font-montserrat text-lg font-bold text-secondary">3 à 4 ans</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="border border-dashed border-outline-variant rounded-lg p-6 text-center bg-surface-gray mt-4">
                   <Upload size={32} className="text-outline mx-auto mb-2" />

@@ -59,29 +59,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // Insert payload into Supabase database (if credentials are set)
-    const hasSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-    
-    if (hasSupabase) {
-      const { data, error } = await supabase.from("quotes").insert([
-        {
-          install_type: installType,
-          surface_m2: Number(surface),
-          steg_monthly_bill: Number(facture),
-          gouvernorat: gouvernorat,
-          full_name: nom.trim(),
-          phone_number: telephone.trim(),
-          email: email.trim(),
-        },
-      ]);
+    // Insert payload into Supabase database quotes table
+    const { data, error } = await supabase.from("quotes").insert([
+      {
+        install_type: installType,
+        surface_m2: Number(surface),
+        steg_monthly_bill: Number(facture),
+        gouvernorat: gouvernorat,
+        full_name: nom.trim(),
+        phone_number: telephone.trim(),
+        email: email.trim(),
+      },
+    ]);
 
-      if (error) {
-        console.error("Supabase insert error:", error);
-        return NextResponse.json(
-          { error: "Erreur lors de l'enregistrement dans la base de données." },
-          { status: 500 }
-        );
-      }
+    if (error) {
+      console.error("Supabase insert error:", error);
+      return NextResponse.json(
+        { error: `Erreur Supabase: ${error.message || "Impossible d'enregistrer le devis"}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -89,10 +85,10 @@ export async function POST(request: Request) {
       message: "Demande de devis enregistrée avec succès !",
       data: { installType, surface, facture, gouvernorat, nom, telephone, email },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("API /api/quotes error:", error);
     return NextResponse.json(
-      { error: "Une erreur est survenue lors de la soumission." },
+      { error: error?.message || "Une erreur est survenue lors de la soumission." },
       { status: 500 }
     );
   }

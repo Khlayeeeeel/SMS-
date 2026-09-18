@@ -37,36 +37,32 @@ export async function POST(request: Request) {
       );
     }
 
-    // Insert payload into Supabase database (if credentials are set)
-    const hasSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    // Insert payload into Supabase database
+    const { data, error } = await supabase.from("contact_messages").insert([
+      {
+        full_name: nom.trim(),
+        email: email.trim(),
+        phone_number: telephone.trim(),
+        message: message.trim(),
+      },
+    ]);
 
-    if (hasSupabase) {
-      const { data, error } = await supabase.from("contact_messages").insert([
-        {
-          full_name: nom.trim(),
-          email: email.trim(),
-          phone_number: telephone.trim(),
-          message: message.trim(),
-        },
-      ]);
-
-      if (error) {
-        console.error("Supabase insert error:", error);
-        return NextResponse.json(
-          { error: "Erreur lors de l'enregistrement du message." },
-          { status: 500 }
-        );
-      }
+    if (error) {
+      console.error("Supabase insert error:", error);
+      return NextResponse.json(
+        { error: `Erreur Supabase: ${error.message || "Impossible d'enregistrer"}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       message: "Message transmis avec succès à l'équipe SMS Solaire !",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("API /api/contact error:", error);
     return NextResponse.json(
-      { error: "Une erreur est survenue lors de l'envoi." },
+      { error: error?.message || "Une erreur est survenue lors de l'envoi." },
       { status: 500 }
     );
   }

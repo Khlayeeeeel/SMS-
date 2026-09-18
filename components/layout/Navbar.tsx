@@ -23,8 +23,12 @@ export function Navbar() {
   return (
     <nav className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant/30">
       <div className="max-w-container-max mx-auto px-gutter md:px-margin-mobile flex justify-between items-center py-4">
-        <Link href="/" className="font-headline-md text-headline-md font-bold text-primary tracking-tight">
-          SMS Solaire
+        <Link href="/" className="flex items-center gap-2 group py-1">
+          <img
+            src="/SMS.svg"
+            alt="SMS Solaire"
+            className="h-14 md:h-16 lg:h-18 w-auto max-h-20 object-contain transition-transform duration-200 group-hover:scale-105 drop-shadow-md"
+          />
         </Link>
 
         <div className="hidden md:flex gap-6 items-center">
