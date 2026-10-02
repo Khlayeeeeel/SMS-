@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 import { withRateLimit, quotesLimiter } from "@/lib/rateLimit";
+import { getClientIp } from "@/lib/rateLimit/getClientIp";
 
 // ---------------------------------------------------------------------------
 // Rate-limited POST handler for the quote/devis form.
@@ -9,6 +10,7 @@ import { withRateLimit, quotesLimiter } from "@/lib/rateLimit";
 // ---------------------------------------------------------------------------
 async function quotesHandler(request: Request): Promise<Response> {
   try {
+    const clientIp = getClientIp(request);
     const body = await request.json();
 
     const { installType, surface, facture, gouvernorat, nom, telephone, email } = body;
@@ -75,6 +77,7 @@ async function quotesHandler(request: Request): Promise<Response> {
         full_name: nom.trim(),
         phone_number: telephone.trim(),
         email: email.trim(),
+        ip_address: clientIp,
       },
     ]);
 
@@ -102,4 +105,3 @@ async function quotesHandler(request: Request): Promise<Response> {
 
 // Export the rate-limited handler — no change to the public API surface
 export const POST = withRateLimit(quotesLimiter, quotesHandler);
-

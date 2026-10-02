@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseServer";
 import { withRateLimit, adminLoginLimiter } from "@/lib/rateLimit";
+import { getClientIp } from "@/lib/rateLimit/getClientIp";
 
 async function loginHandler(request: Request): Promise<Response> {
+  const clientIp = getClientIp(request);
+  const userAgent = request.headers.get("user-agent") || "unknown";
+
   try {
     const { email, password } = await request.json();
 
@@ -45,6 +50,20 @@ async function loginHandler(request: Request): Promise<Response> {
         isAuthenticated = true;
         userToken = "sms_admin_session_token_" + Date.now();
       }
+    }
+
+    // Log the audit attempt to database
+    try {
+      await supabaseAdmin.from("admin_login_logs").insert([
+        {
+          email: email.trim(),
+          ip_address: clientIp,
+          success: isAuthenticated,
+          user_agent: userAgent,
+        },
+      ]);
+    } catch (logErr) {
+      console.warn("Failed to record admin login audit log:", logErr);
     }
 
     if (!isAuthenticated) {

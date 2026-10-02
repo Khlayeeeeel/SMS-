@@ -15,8 +15,12 @@ CREATE TABLE IF NOT EXISTS public.quotes (
     email VARCHAR(150) NOT NULL,
     steg_file_url VARCHAR(500),
     status VARCHAR(50) DEFAULT 'NEW',
+    ip_address VARCHAR(45) DEFAULT '127.0.0.1',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Ensure ip_address column exists if quotes table was already created previously
+ALTER TABLE public.quotes ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45) DEFAULT '127.0.0.1';
 
 -- 2. Create Contact Messages Table
 CREATE TABLE IF NOT EXISTS public.contact_messages (
@@ -26,8 +30,12 @@ CREATE TABLE IF NOT EXISTS public.contact_messages (
     phone_number VARCHAR(30) NOT NULL,
     message TEXT NOT NULL,
     status VARCHAR(50) DEFAULT 'UNREAD',
+    ip_address VARCHAR(45) DEFAULT '127.0.0.1',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Ensure ip_address column exists if contact_messages table was already created previously
+ALTER TABLE public.contact_messages ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45) DEFAULT '127.0.0.1';
 
 -- 3. Create Solar Projects Gallery Table
 CREATE TABLE IF NOT EXISTS public.projects (
@@ -44,18 +52,31 @@ CREATE TABLE IF NOT EXISTS public.projects (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 4. Create Admin Authentication Audit Logs Table
+CREATE TABLE IF NOT EXISTS public.admin_login_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(150) NOT NULL,
+    ip_address VARCHAR(45) NOT NULL,
+    success BOOLEAN DEFAULT FALSE,
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- =========================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- Ensure simple public website visitors can ONLY submit leads (INSERT)
--- Public users CANNOT read (SELECT), edit (UPDATE), or delete (DELETE) data.
+-- Public users CANNOT read (SELECT), edit (UPDATE), or delete (DELETE) data or IP addresses.
+-- Server API routes use SUPABASE_SERVICE_ROLE_KEY to perform admin queries safely.
 -- =========================================================================
 
 -- Enable RLS on all tables
 ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_login_logs ENABLE ROW LEVEL SECURITY;
 
 -- Quotes RLS: Allow anonymous public users to INSERT quote leads
+DROP POLICY IF EXISTS "Allow public insert to quotes" ON public.quotes;
 CREATE POLICY "Allow public insert to quotes"
 ON public.quotes
 FOR INSERT
@@ -63,6 +84,7 @@ TO anon, authenticated
 WITH CHECK (true);
 
 -- Contact Messages RLS: Allow anonymous public users to INSERT messages
+DROP POLICY IF EXISTS "Allow public insert to contact_messages" ON public.contact_messages;
 CREATE POLICY "Allow public insert to contact_messages"
 ON public.contact_messages
 FOR INSERT
@@ -70,8 +92,17 @@ TO anon, authenticated
 WITH CHECK (true);
 
 -- Projects RLS: Allow public visitors to SELECT/READ published solar projects
+DROP POLICY IF EXISTS "Allow public read published projects" ON public.projects;
 CREATE POLICY "Allow public read published projects"
 ON public.projects
 FOR SELECT
 TO anon, authenticated
 USING (published = true);
+
+-- Admin Audit Logs RLS: Deny public access completely (only server admin key can read/write)
+DROP POLICY IF EXISTS "Block public access to admin logs" ON public.admin_login_logs;
+CREATE POLICY "Block public access to admin logs"
+ON public.admin_login_logs
+FOR ALL
+TO anon, authenticated
+USING (false);

@@ -47,6 +47,7 @@ interface Quote {
   email: string;
   steg_file_url?: string;
   status: string;
+  ip_address?: string;
   created_at: string;
 }
 
@@ -57,6 +58,7 @@ interface Message {
   phone_number: string;
   message: string;
   status: string;
+  ip_address?: string;
   created_at: string;
 }
 
@@ -1179,13 +1181,23 @@ export default function AdminDashboardPage() {
                   </span>
                   <p className="font-semibold text-white mt-0.5">{selectedQuote.surface_m2} m²</p>
                 </div>
-                <div className="col-span-2 pt-2 border-t border-slate-800">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
-                    Facture Mensuelle STEG
-                  </span>
-                  <p className="font-mono font-extrabold text-amber-400 text-base mt-0.5">
-                    {selectedQuote.steg_monthly_bill} TND / mois
-                  </p>
+                <div className="col-span-2 pt-2 border-t border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                      Facture Mensuelle STEG
+                    </span>
+                    <p className="font-mono font-extrabold text-amber-400 text-base mt-0.5">
+                      {selectedQuote.steg_monthly_bill} TND / mois
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                      Adresse IP Source
+                    </span>
+                    <p className="font-mono text-xs text-slate-300 font-semibold mt-0.5">
+                      🌐 {selectedQuote.ip_address || "Enregistrée"}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1240,9 +1252,14 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="space-y-3 bg-slate-950/80 p-5 rounded-2xl border border-slate-800/80 text-xs">
-              <p className="text-slate-300">
-                <strong className="text-white font-semibold">Email:</strong> {selectedMessage.email}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-slate-300">
+                  <strong className="text-white font-semibold">Email:</strong> {selectedMessage.email}
+                </p>
+                <span className="font-mono text-slate-400 text-[11px]">
+                  🌐 {selectedMessage.ip_address || "IP Logged"}
+                </span>
+              </div>
               <p className="text-slate-300">
                 <strong className="text-white font-semibold">Téléphone:</strong> {selectedMessage.phone_number}
               </p>
