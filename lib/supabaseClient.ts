@@ -1,25 +1,21 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl =
-  (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_URL.trim()) ||
-  (process.env.SUPABASE_URL && process.env.SUPABASE_URL.trim()) ||
-  "https://eutylmpejwcrmdxqcfdn.supabase.co";
+// ---------------------------------------------------------------------------
+// PUBLIC (anon) client — safe for browser & server-side rendering.
+// Only uses NEXT_PUBLIC_ variables. Never contains any secret.
+// ---------------------------------------------------------------------------
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-const supabaseAnonKey =
-  (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.trim()) ||
-  (process.env.SUPABASE_PUBLISHABLE_KEY && process.env.SUPABASE_PUBLISHABLE_KEY.trim()) ||
-  "placeholder-key";
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    "[SMS Solaire] Missing Supabase public environment variables.\n" +
+      "Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your .env file."
+  );
+}
 
 /**
- * Supabase client instance.
- * Safe to use on both browser and server side.
+ * Public Supabase client (anon key).
+ * Safe to import on the client side. Does NOT have admin privileges.
  */
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-/**
- * Server-side admin client using secret key.
- */
-export function getServiceSupabase() {
-  const serviceRoleKey = process.env.SUPABASE_SECRET_KEY || supabaseAnonKey;
-  return createClient(supabaseUrl, serviceRoleKey);
-}
