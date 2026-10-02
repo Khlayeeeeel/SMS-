@@ -3,12 +3,27 @@ import { supabase } from "@/lib/supabaseClient";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 import { withRateLimit, adminLoginLimiter } from "@/lib/rateLimit";
 import { getClientIp } from "@/lib/rateLimit/getClientIp";
+import { isIpBlocked, recordFailedAttemptAndCheckBan } from "@/lib/ipBlocker";
 
 async function loginHandler(request: Request): Promise<Response> {
   const clientIp = getClientIp(request);
   const userAgent = request.headers.get("user-agent") || "unknown";
 
   try {
+    // 0. Check if IP is already banned in Supabase blocked_ips table
+    const banned = await isIpBlocked(clientIp);
+    if (banned) {
+      return NextResponse.json(
+        {
+          error:
+            "Accès bloqué: Votre adresse IP (" +
+            clientIp +
+            ") est bannie suite à de multiples tentatives infructueuses. Contactez l'administrateur.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { email, password } = await request.json();
 
     if (!email || !password) {
@@ -52,7 +67,7 @@ async function loginHandler(request: Request): Promise<Response> {
       }
     }
 
-    // Log the audit attempt to database
+    // Record attempt in audit log
     try {
       await supabaseAdmin.from("admin_login_logs").insert([
         {
@@ -66,7 +81,23 @@ async function loginHandler(request: Request): Promise<Response> {
       console.warn("Failed to record admin login audit log:", logErr);
     }
 
+    // If authentication failed
     if (!isAuthenticated) {
+      // Check if this failed attempt triggers an automatic IP ban
+      const { isBanned } = await recordFailedAttemptAndCheckBan(clientIp, email);
+
+      if (isBanned) {
+        return NextResponse.json(
+          {
+            error:
+              "Sécurité: Votre adresse IP (" +
+              clientIp +
+              ") vient d'être bloquée pour 24h suite à 5 tentatives de connexion échouées.",
+          },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Identifiants incorrects. Vérifiez l'adresse email et le mot de passe." },
         { status: 401 }
