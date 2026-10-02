@@ -70,11 +70,7 @@ const WHITELIST: string[] = (process.env.RATE_LIMIT_WHITELIST_IPS ?? "")
 
 /**
  * Contact Form — POST /api/contact
- *
- * Rationale: A genuine visitor sends 1–2 contact messages ever.
- * 5 per hour is extremely generous for humans, prohibitive for bots.
- *
- * Override: RATE_LIMIT_CONTACT_MAX, RATE_LIMIT_CONTACT_WINDOW_MS
+ * 5 requests per IP per hour.
  */
 export const contactLimiter: RateLimitConfig = {
   name: "contact-form",
@@ -88,11 +84,7 @@ export const contactLimiter: RateLimitConfig = {
 
 /**
  * Quote / Devis Form — POST /api/quotes
- *
- * Rationale: A user realistically submits 1 quote request. 3 per hour
- * catches copy-paste retries while blocking any automated submission.
- *
- * Override: RATE_LIMIT_QUOTES_MAX, RATE_LIMIT_QUOTES_WINDOW_MS
+ * 3 requests per IP per hour.
  */
 export const quotesLimiter: RateLimitConfig = {
   name: "quotes-form",
@@ -105,19 +97,29 @@ export const quotesLimiter: RateLimitConfig = {
 };
 
 /**
- * Admin routes — POST|GET /api/admin/*  (future)
- *
- * Stricter: 20 req/min. Even a fast admin user won't exceed this.
- * Brute-force login attempts are stopped well before any damage.
- *
- * Override: RATE_LIMIT_ADMIN_MAX, RATE_LIMIT_ADMIN_WINDOW_MS
+ * Admin Login Endpoint — POST /api/admin/auth/login
+ * Strict Anti-Brute-Force: Max 5 attempts per IP per 15 minutes.
+ */
+export const adminLoginLimiter: RateLimitConfig = {
+  name: "admin-login",
+  limit: parseInt(process.env.RATE_LIMIT_ADMIN_LOGIN_MAX ?? "5", 10),
+  windowMs: parseInt(process.env.RATE_LIMIT_ADMIN_LOGIN_WINDOW_MS ?? String(15 * 60 * 1000), 10), // 15 minutes
+  store: sharedStore,
+  failOpen: false, // FAIL CLOSED for brute force protection
+  whitelistedIPs: WHITELIST,
+  hideInternalsInProduction: true,
+};
+
+/**
+ * Admin General Routes — /api/admin/*
+ * 20 req/min limit for general admin API calls.
  */
 export const adminLimiter: RateLimitConfig = {
   name: "admin",
   limit: parseInt(process.env.RATE_LIMIT_ADMIN_MAX ?? "20", 10),
   windowMs: parseInt(process.env.RATE_LIMIT_ADMIN_WINDOW_MS ?? String(60 * 1000), 10), // 1 minute
   store: sharedStore,
-  failOpen: false, // FAIL CLOSED for admin — security over availability
+  failOpen: false, // FAIL CLOSED for security
   whitelistedIPs: WHITELIST,
   hideInternalsInProduction: true,
 };

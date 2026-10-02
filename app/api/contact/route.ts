@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 import { withRateLimit, contactLimiter } from "@/lib/rateLimit";
+import { getClientIp } from "@/lib/rateLimit/getClientIp";
 
 // ---------------------------------------------------------------------------
 // Rate-limited POST handler for the contact form.
@@ -9,6 +10,7 @@ import { withRateLimit, contactLimiter } from "@/lib/rateLimit";
 // ---------------------------------------------------------------------------
 async function contactHandler(request: Request): Promise<Response> {
   try {
+    const clientIp = getClientIp(request);
     const body = await request.json();
     const { nom, email, telephone, message } = body;
 
@@ -50,6 +52,7 @@ async function contactHandler(request: Request): Promise<Response> {
         email: email.trim(),
         phone_number: telephone.trim(),
         message: message.trim(),
+        ip_address: clientIp,
       },
     ]);
 
@@ -76,4 +79,3 @@ async function contactHandler(request: Request): Promise<Response> {
 
 // Export the rate-limited handler — no change to the public API surface
 export const POST = withRateLimit(contactLimiter, contactHandler);
-

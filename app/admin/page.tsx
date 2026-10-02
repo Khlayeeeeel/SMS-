@@ -34,6 +34,10 @@ import {
   Sparkles,
   Activity,
   Layers,
+  ShieldAlert,
+  Unlock,
+  Ban,
+  Shield,
 } from "lucide-react";
 
 interface Quote {
@@ -47,6 +51,7 @@ interface Quote {
   email: string;
   steg_file_url?: string;
   status: string;
+  ip_address?: string;
   created_at: string;
 }
 
@@ -57,6 +62,7 @@ interface Message {
   phone_number: string;
   message: string;
   status: string;
+  ip_address?: string;
   created_at: string;
 }
 
@@ -73,10 +79,19 @@ interface Project {
   created_at: string;
 }
 
+interface BlockedIp {
+  id: string;
+  ip_address: string;
+  reason: string;
+  attempts_count: number;
+  expires_at: string | null;
+  created_at: string;
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "quotes" | "messages" | "projects">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "quotes" | "messages" | "projects" | "security">("overview");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Data states
@@ -91,6 +106,7 @@ export default function AdminDashboardPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [blockedIps, setBlockedIps] = useState<BlockedIp[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   // Filters & Search
@@ -102,6 +118,7 @@ export default function AdminDashboardPage() {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isBlockIpModalOpen, setIsBlockIpModalOpen] = useState(false);
 
   // New Project Form State
   const [newProject, setNewProject] = useState({
@@ -114,7 +131,16 @@ export default function AdminDashboardPage() {
     image_url: "",
     published: true,
   });
+
+  // Manual IP Block Form State
+  const [manualIpBlock, setManualIpBlock] = useState({
+    ipAddress: "",
+    reason: "Tentatives suspectes / Blocage manuel",
+    durationHours: 24,
+  });
+
   const [submittingProject, setSubmittingProject] = useState(false);
+  const [submittingIpBlock, setSubmittingIpBlock] = useState(false);
   const [actionSuccess, setActionSuccess] = useState("");
 
   const [adminUserEmail, setAdminUserEmail] = useState("Admin");
@@ -146,11 +172,12 @@ export default function AdminDashboardPage() {
   const fetchAllData = async () => {
     setLoadingData(true);
     try {
-      const [sRes, qRes, mRes, pRes] = await Promise.all([
+      const [sRes, qRes, mRes, pRes, bRes] = await Promise.all([
         fetch("/api/admin/stats"),
         fetch("/api/admin/quotes"),
         fetch("/api/admin/messages"),
         fetch("/api/admin/projects"),
+        fetch("/api/admin/blocked-ips"),
       ]);
 
       if (sRes.ok) setStats(await sRes.json());
@@ -165,6 +192,10 @@ export default function AdminDashboardPage() {
       if (pRes.ok) {
         const pData = await pRes.json();
         setProjects(pData.projects || []);
+      }
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        setBlockedIps(bData.blockedIps || []);
       }
     } catch (err) {
       console.error("Error loading admin data:", err);
@@ -314,6 +345,52 @@ export default function AdminDashboardPage() {
       console.error("Error creating project", err);
     } finally {
       setSubmittingProject(false);
+    }
+  };
+
+  // Blocked IP Actions
+  const handleUnblockIp = async (id: string, ip: string) => {
+    if (!confirm(`Débloquer l'adresse IP ${ip} ?`)) return;
+    try {
+      const res = await fetch(`/api/admin/blocked-ips?id=${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setBlockedIps((prev) => prev.filter((item) => item.id !== id));
+        showToast(`Adresse IP ${ip} débloquée.`);
+      }
+    } catch (err) {
+      console.error("Failed to unblock IP", err);
+    }
+  };
+
+  const handleManualBlockIp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingIpBlock(true);
+    try {
+      const res = await fetch("/api/admin/blocked-ips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(manualIpBlock),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setIsBlockIpModalOpen(false);
+        setManualIpBlock({
+          ipAddress: "",
+          reason: "Tentatives suspectes / Blocage manuel",
+          durationHours: 24,
+        });
+        fetchAllData();
+        showToast(data.message || "Adresse IP bloquée !");
+      } else {
+        alert(data.error || "Erreur lors du blocage d'IP");
+      }
+    } catch (err) {
+      console.error("Error blocking IP", err);
+    } finally {
+      setSubmittingIpBlock(false);
     }
   };
 
@@ -509,18 +586,35 @@ export default function AdminDashboardPage() {
                 </div>
                 {activeTab === "projects" && <ChevronRight className="w-4 h-4 opacity-70" />}
               </button>
-            </div>
-          </div>
 
-          {/* Quick Info Badge */}
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold">
-              <Sparkles className="w-4 h-4 shrink-0" />
-              <span>Tableau de bord live</span>
+              <button
+                onClick={() => {
+                  setActiveTab("security");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 group ${
+                  activeTab === "security"
+                    ? "bg-gradient-to-r from-red-500 to-amber-500 text-slate-950 font-bold shadow-lg shadow-red-500/25 ring-1 ring-red-400/50 scale-[1.01]"
+                    : "text-slate-400 hover:bg-slate-800/80 hover:text-red-400"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <ShieldAlert className={`w-5 h-5 ${activeTab === "security" ? "text-slate-950" : "text-red-400"}`} />
+                  <span>Sécurité & IP</span>
+                </div>
+                {blockedIps.length > 0 && (
+                  <span
+                    className={`text-xs px-2.5 py-0.5 rounded-full font-extrabold shadow-sm ${
+                      activeTab === "security"
+                        ? "bg-slate-950 text-red-400"
+                        : "bg-red-500 text-white shadow-red-500/30"
+                    }`}
+                  >
+                    {blockedIps.length}
+                  </span>
+                )}
+              </button>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Base de données synchronisée. Toutes vos modifications sont appliquées instantanément.
-            </p>
           </div>
         </div>
 
@@ -567,6 +661,7 @@ export default function AdminDashboardPage() {
                 {activeTab === "quotes" && "Demandes de Devis"}
                 {activeTab === "messages" && "Messages Clientèle"}
                 {activeTab === "projects" && "Catalogue Réalisations"}
+                {activeTab === "security" && "Sécurité Pare-feu & Blocage IP"}
               </h1>
             </div>
           </div>
@@ -675,20 +770,23 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-slate-900/90 border border-slate-800/80 p-5 rounded-2xl shadow-xl">
+                <div
+                  onClick={() => setActiveTab("security")}
+                  className="bg-slate-900/90 border border-slate-800/80 hover:border-red-500/50 p-5 rounded-2xl cursor-pointer transition-all shadow-xl hover:-translate-y-1 group"
+                >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      Demandes Traitées
+                      IPs Bannies
                     </span>
-                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <ShieldAlert className="w-5 h-5" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
                     <span className="text-3xl font-bold font-montserrat text-white">
-                      {quotes.filter((q) => q.status === "COMPLETED").length}
+                      {blockedIps.length}
                     </span>
-                    <span className="text-xs text-slate-400">devis finalisés</span>
+                    <span className="text-xs text-slate-400">adresses bloquées</span>
                   </div>
                 </div>
               </div>
@@ -1126,6 +1224,92 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           )}
+
+          {/* SECURITY & IP BLOCKING TAB */}
+          {activeTab === "security" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800/80 p-5 rounded-2xl shadow-xl">
+                <div>
+                  <h3 className="font-montserrat font-bold text-white text-lg flex items-center gap-2">
+                    <ShieldAlert className="w-5 h-5 text-red-400" />
+                    Adresses IP Bannie & Pare-feu Anti-Brute-Force
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Les adresses IP ayant effectué 5 tentatives de connexion infructueuses sont automatiquement bloquées dans Supabase.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsBlockIpModalOpen(true)}
+                  className="py-2.5 px-5 bg-gradient-to-r from-red-500 to-amber-500 hover:from-red-400 hover:to-amber-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-red-500/20 transition-all shrink-0"
+                >
+                  <Ban className="w-4 h-4" />
+                  Bloquer une IP
+                </button>
+              </div>
+
+              <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-950/80 text-slate-400 uppercase font-bold border-b border-slate-800/80">
+                      <tr>
+                        <th className="p-4">Adresse IP</th>
+                        <th className="p-4">Raison du blocage</th>
+                        <th className="p-4">Tentatives</th>
+                        <th className="p-4">Expiration Ban</th>
+                        <th className="p-4">Date de blocage</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {blockedIps.map((b) => (
+                        <tr key={b.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="p-4">
+                            <span className="font-mono font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-lg">
+                              🌐 {b.ip_address}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-300 font-medium max-w-xs truncate">
+                            {b.reason}
+                          </td>
+                          <td className="p-4 font-mono font-bold text-amber-400">
+                            {b.attempts_count} essais
+                          </td>
+                          <td className="p-4 text-slate-400 font-medium">
+                            {b.expires_at
+                              ? new Date(b.expires_at).toLocaleString("fr-FR")
+                              : "Permanence"}
+                          </td>
+                          <td className="p-4 text-slate-500">
+                            {new Date(b.created_at).toLocaleDateString("fr-FR")}
+                          </td>
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={() => handleUnblockIp(b.id, b.ip_address)}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1.5 ml-auto transition-all border border-emerald-500/20"
+                            >
+                              <Unlock className="w-3.5 h-3.5" />
+                              Débloquer IP
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {blockedIps.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-12 text-center text-slate-500">
+                            <Shield className="w-10 h-10 mx-auto text-emerald-400/50 mb-2" />
+                            <p className="text-sm font-bold text-slate-300">Aucune IP bannie actuellement</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Votre système est sécurisé. Les pirates subissant 5 erreurs de login seront bannis automatiquement.
+                            </p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1190,13 +1374,23 @@ export default function AdminDashboardPage() {
                   </span>
                   <p className="font-semibold text-white mt-0.5">{selectedQuote.surface_m2} m²</p>
                 </div>
-                <div className="col-span-2 pt-2 border-t border-slate-800">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
-                    Facture Mensuelle STEG
-                  </span>
-                  <p className="font-mono font-extrabold text-amber-400 text-base mt-0.5">
-                    {selectedQuote.steg_monthly_bill} TND / mois
-                  </p>
+                <div className="col-span-2 pt-2 border-t border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                      Facture Mensuelle STEG
+                    </span>
+                    <p className="font-mono font-extrabold text-amber-400 text-base mt-0.5">
+                      {selectedQuote.steg_monthly_bill} TND / mois
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                      Adresse IP Source
+                    </span>
+                    <p className="font-mono text-xs text-slate-300 font-semibold mt-0.5">
+                      🌐 {selectedQuote.ip_address || "Enregistrée"}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1251,9 +1445,14 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="space-y-3 bg-slate-950/80 p-5 rounded-2xl border border-slate-800/80 text-xs">
-              <p className="text-slate-300">
-                <strong className="text-white font-semibold">Email:</strong> {selectedMessage.email}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-slate-300">
+                  <strong className="text-white font-semibold">Email:</strong> {selectedMessage.email}
+                </p>
+                <span className="font-mono text-slate-400 text-[11px]">
+                  🌐 {selectedMessage.ip_address || "IP Logged"}
+                </span>
+              </div>
               <p className="text-slate-300">
                 <strong className="text-white font-semibold">Téléphone:</strong> {selectedMessage.phone_number}
               </p>
@@ -1415,6 +1614,89 @@ export default function AdminDashboardPage() {
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-extrabold shadow-lg shadow-amber-500/20"
                 >
                   {submittingProject ? "Ajout..." : "Créer le Projet"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Manually Block IP */}
+      {isBlockIpModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
+            <button
+              onClick={() => setIsBlockIpModalOpen(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center">
+                <Ban className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-lg">Bloquer une adresse IP</h3>
+                <p className="text-xs text-slate-400">
+                  Interdire l'accès au Dashboard et APIs pour cette IP
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleManualBlockIp} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Adresse IP</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ex: 197.26.12.45"
+                  value={manualIpBlock.ipAddress}
+                  onChange={(e) => setManualIpBlock({ ...manualIpBlock, ipAddress: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-mono outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Raison du blocage</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ex: Attaque brute-force / tentative suspecte"
+                  value={manualIpBlock.reason}
+                  onChange={(e) => setManualIpBlock({ ...manualIpBlock, reason: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Durée du ban (Heures)</label>
+                <select
+                  value={manualIpBlock.durationHours}
+                  onChange={(e) => setManualIpBlock({ ...manualIpBlock, durationHours: Number(e.target.value) })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-red-500 font-semibold"
+                >
+                  <option value={24}>24 Heures (1 Jour)</option>
+                  <option value={72}>72 Heures (3 Jours)</option>
+                  <option value={168}>168 Heures (1 Semaine)</option>
+                  <option value={0}>Permanence (Pas d'expiration)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsBlockIpModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingIpBlock}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-amber-500 hover:from-red-400 hover:to-amber-400 text-slate-950 font-extrabold shadow-lg shadow-red-500/20"
+                >
+                  {submittingIpBlock ? "Blocage..." : "Bloquer l'IP"}
                 </button>
               </div>
             </form>
