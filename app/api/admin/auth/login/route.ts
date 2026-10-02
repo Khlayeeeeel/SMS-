@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { withRateLimit, adminLoginLimiter } from "@/lib/rateLimit";
 
-export async function POST(request: Request) {
+async function loginHandler(request: Request): Promise<Response> {
   try {
     const { email, password } = await request.json();
 
@@ -77,3 +78,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withRateLimit(adminLoginLimiter, loginHandler);

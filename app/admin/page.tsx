@@ -511,17 +511,6 @@ export default function AdminDashboardPage() {
               </button>
             </div>
           </div>
-
-          {/* Quick Info Badge */}
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold">
-              <Sparkles className="w-4 h-4 shrink-0" />
-              <span>Tableau de bord live</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Base de données synchronisée. Toutes vos modifications sont appliquées instantanément.
-            </p>
-          </div>
         </div>
 
         {/* Footer Actions */}
