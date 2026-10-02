@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only run middleware on /admin and /api/admin routes
+  // Only run on /admin and /api/admin routes
   if (!pathname.startsWith("/admin") && !pathname.startsWith("/api/admin")) {
     return NextResponse.next();
   }
 
-  // Allow public access to login endpoints
+  // Allow public access to login endpoints (no auth required)
   if (pathname === "/admin/login" || pathname === "/api/admin/auth/login") {
     return NextResponse.next();
   }
 
-  // Check for session cookie
+  // Check for admin session cookie
   const adminToken = request.cookies.get("sms_admin_token")?.value;
 
   if (!adminToken) {
-    // If requesting an API route, return 401 Unauthorized
+    // API route without session → 401 Unauthorized
     if (pathname.startsWith("/api/admin")) {
       return NextResponse.json(
         { error: "Accès refusé. Session administrateur obligatoire." },
@@ -26,7 +26,7 @@ export function middleware(request: NextRequest) {
       );
     }
 
-    // If requesting a dashboard page, redirect to /admin/login
+    // Dashboard page without session → redirect to login
     const loginUrl = new URL("/admin/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
