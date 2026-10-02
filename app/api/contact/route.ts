@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseServer";
+import { withRateLimit, contactLimiter } from "@/lib/rateLimit";
 
-export async function POST(request: Request) {
+// ---------------------------------------------------------------------------
+// Rate-limited POST handler for the contact form.
+// Limit: 5 requests per IP per hour (configurable via env vars).
+// Returns 429 with X-RateLimit-* headers when exceeded.
+// ---------------------------------------------------------------------------
+async function contactHandler(request: Request): Promise<Response> {
   try {
     const body = await request.json();
     const { nom, email, telephone, message } = body;
@@ -38,7 +44,7 @@ export async function POST(request: Request) {
     }
 
     // Insert payload into Supabase database
-    const { data, error } = await supabase.from("contact_messages").insert([
+    const { data, error } = await supabaseAdmin.from("contact_messages").insert([
       {
         full_name: nom.trim(),
         email: email.trim(),
@@ -67,3 +73,7 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Export the rate-limited handler — no change to the public API surface
+export const POST = withRateLimit(contactLimiter, contactHandler);
+

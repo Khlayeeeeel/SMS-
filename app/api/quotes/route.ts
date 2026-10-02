@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseAdmin } from "@/lib/supabaseServer";
+import { withRateLimit, quotesLimiter } from "@/lib/rateLimit";
 
-export async function POST(request: Request) {
+// ---------------------------------------------------------------------------
+// Rate-limited POST handler for the quote/devis form.
+// Limit: 3 requests per IP per hour (configurable via env vars).
+// Returns 429 with X-RateLimit-* headers when exceeded.
+// ---------------------------------------------------------------------------
+async function quotesHandler(request: Request): Promise<Response> {
   try {
     const body = await request.json();
 
@@ -60,7 +66,7 @@ export async function POST(request: Request) {
     }
 
     // Insert payload into Supabase database quotes table
-    const { data, error } = await supabase.from("quotes").insert([
+    const { data, error } = await supabaseAdmin.from("quotes").insert([
       {
         install_type: installType,
         surface_m2: Number(surface),
@@ -93,3 +99,7 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Export the rate-limited handler — no change to the public API surface
+export const POST = withRateLimit(quotesLimiter, quotesHandler);
+
