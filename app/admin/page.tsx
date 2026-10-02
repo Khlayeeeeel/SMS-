@@ -117,6 +117,8 @@ export default function AdminDashboardPage() {
   const [submittingProject, setSubmittingProject] = useState(false);
   const [actionSuccess, setActionSuccess] = useState("");
 
+  const [adminUserEmail, setAdminUserEmail] = useState("Admin");
+
   // 1. Verify Authentication
   useEffect(() => {
     checkAuth();
@@ -128,6 +130,10 @@ export default function AdminDashboardPage() {
       if (!res.ok) {
         router.push("/admin/login");
         return;
+      }
+      const meData = await res.json();
+      if (meData?.user?.email) {
+        setAdminUserEmail(meData.user.email);
       }
       setLoadingAuth(false);
       fetchAllData();
@@ -584,7 +590,7 @@ export default function AdminDashboardPage() {
                 A
               </div>
               <span className="text-xs text-slate-200 font-semibold hidden sm:inline">
-                admin@smssolaire.tn
+                {adminUserEmail}
               </span>
             </div>
           </div>

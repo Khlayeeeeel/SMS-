@@ -12,7 +12,7 @@ export async function GET() {
   return NextResponse.json({
     authenticated: true,
     user: {
-      email: process.env.ADMIN_EMAIL || "admin@smssolaire.tn",
+      email: process.env.ADMIN_EMAIL || "admin",
       role: "admin",
     },
   });

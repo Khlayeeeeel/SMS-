@@ -12,8 +12,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const envAdminEmail = process.env.ADMIN_EMAIL || "admin@smssolaire.tn";
-    const envAdminPassword = process.env.ADMIN_PASSWORD || "Admin2026!Solaire";
+    const envAdminEmail = process.env.ADMIN_EMAIL;
+    const envAdminPassword = process.env.ADMIN_PASSWORD;
 
     // 1. First try Supabase Auth if configured
     let isAuthenticated = false;
@@ -35,9 +35,12 @@ export async function POST(request: Request) {
       // Supabase auth failed or not configured, fallback to env check
     }
 
-    // 2. Fallback to Env / Admin credentials check if Supabase Auth wasn't used or returned error
-    if (!isAuthenticated) {
-      if (email.trim().toLowerCase() === envAdminEmail.toLowerCase() && password === envAdminPassword) {
+    // 2. Fallback to Env credentials check if Supabase Auth wasn't used or returned error
+    if (!isAuthenticated && envAdminEmail && envAdminPassword) {
+      if (
+        email.trim().toLowerCase() === envAdminEmail.toLowerCase() &&
+        password === envAdminPassword
+      ) {
         isAuthenticated = true;
         userToken = "sms_admin_session_token_" + Date.now();
       }

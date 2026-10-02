@@ -143,14 +143,6 @@ export default function AdminLoginPage() {
             )}
           </button>
         </form>
-
-        {/* Default Credential Quick Helper */}
-        <div className="mt-8 pt-6 border-t border-slate-800/80 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-950/40 border border-slate-800 text-xs text-slate-400">
-            <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>Identifiants de démonstration: <code className="text-amber-300 font-mono">admin@smssolaire.tn</code></span>
-          </div>
-        </div>
       </div>
     </div>
   );
